@@ -1,0 +1,743 @@
+-- Universal Silent Aim - Rayfield UI Version
+-- Mobile Friendly with Centered FOV and Perfect Logic
+
+-- init
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+if not syn or not protectgui then
+    getgenv().protectgui = function() end
+end
+
+local SilentAimSettings = {
+    Enabled = false,
+    ClassName = "Universal Silent Aim - Rayfield UI",  
+    ToggleKey = "RightAlt",  
+      
+    TeamCheck = false,  
+    VisibleCheck = false,   
+    TargetPart = "HumanoidRootPart",  
+    SilentAimMethod = "Raycast",  
+      
+    FOVRadius = 130,  
+    FOVVisible = false,  
+    ShowSilentAimTarget = false,   
+      
+    MouseHitPrediction = false,  
+    MouseHitPredictionAmount = 0.165,  
+    HitChance = 100
+}
+
+-- variables
+getgenv().SilentAimSettings = SilentAimSettings
+local MainFileName = "UniversalSilentAim"
+local SelectedFile, FileToSave = "", ""
+
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-- Mobile detection
+local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local ScreenSize = Camera.ViewportSize
+
+local GetChildren = game.GetChildren
+local GetPlayers = Players.GetPlayers
+local WorldToScreen = Camera.WorldToScreenPoint
+local WorldToViewportPoint = Camera.WorldToViewportPoint
+local GetPartsObscuringTarget = Camera.GetPartsObscuringTarget
+local FindFirstChild = game.FindFirstChild
+local RenderStepped = RunService.RenderStepped
+local GuiInset = GuiService.GetGuiInset
+local GetMouseLocation = UserInputService.GetMouseLocation
+
+local resume = coroutine.resume
+local create = coroutine.create
+
+local ValidTargetParts = {"Head", "HumanoidRootPart"}
+local PredictionAmount = 0.165
+
+-- Drawing objects with mobile optimizations
+local mouse_box = Drawing.new("Square")
+mouse_box.Visible = false
+mouse_box.ZIndex = 999
+mouse_box.Color = Color3.fromRGB(255, 0, 0)
+mouse_box.Thickness = IsMobile and 3 or 2
+mouse_box.Size = Vector2.new(IsMobile and 25 or 20, IsMobile and 25 or 20)
+mouse_box.Filled = false
+
+local fov_circle = Drawing.new("Circle")
+fov_circle.Thickness = IsMobile and 2 or 1
+fov_circle.NumSides = 100
+fov_circle.Radius = 130
+fov_circle.Filled = false
+fov_circle.Visible = false
+fov_circle.ZIndex = 999
+fov_circle.Transparency = 1
+fov_circle.Color = Color3.fromRGB(255, 255, 255)
+
+local ExpectedArguments = {
+    FindPartOnRayWithIgnoreList = {
+        ArgCountRequired = 3,
+        Args = {
+            "Instance", "Ray", "table", "boolean", "boolean"
+        }
+    },
+    FindPartOnRayWithWhitelist = {
+        ArgCountRequired = 3,
+        Args = {
+            "Instance", "Ray", "table", "boolean"
+        }
+    },
+    FindPartOnRay = {
+        ArgCountRequired = 2,
+        Args = {
+            "Instance", "Ray", "Instance", "boolean", "boolean"
+        }
+    },
+    Raycast = {
+        ArgCountRequired = 3,
+        Args = {
+            "Instance", "Vector3", "Vector3", "RaycastParams"
+        }
+    }
+}
+
+function CalculateChance(Percentage)
+    if not Percentage or Percentage <= 0 then return false end
+    Percentage = math.floor(math.clamp(Percentage, 0, 100))
+    local chance = math.random(0, 100)
+    return chance <= Percentage
+end
+
+-- File handling
+do
+    if not isfolder(MainFileName) then
+        makefolder(MainFileName);
+    end
+
+    if not isfolder(string.format("%s/%s", MainFileName, tostring(game.PlaceId))) then   
+        makefolder(string.format("%s/%s", MainFileName, tostring(game.PlaceId)))  
+    end
+end
+
+-- Functions
+local function GetFiles()
+    local Files = listfiles(string.format("%s/%s", MainFileName, tostring(game.PlaceId)))
+    local out = {}
+    for i = 1, #Files do
+        local file = Files[i]
+        if file:sub(-4) == '.lua' then
+            local pos = file:find('.lua', 1, true)  
+            local start = pos  
+
+            local char = file:sub(pos, pos)  
+            while char ~= '/' and char ~= '\\' and char ~= '' do  
+                pos = pos - 1  
+                char = file:sub(pos, pos)  
+            end  
+
+            if char == '/' or char == '\\' then  
+                table.insert(out, file:sub(pos + 1, start - 1))  
+            end  
+        end  
+    end  
+    return out
+end
+
+local function UpdateFile(FileName)
+    if not FileName or FileName == "" then return false end
+    local success, err = pcall(function()
+        writefile(string.format("%s/%s/%s.lua", MainFileName, tostring(game.PlaceId), FileName), HttpService:JSONEncode(SilentAimSettings))
+    end)
+    return success
+end
+
+local function LoadFile(FileName)
+    if not FileName or FileName == "" then return false end
+    local success, err = pcall(function()
+        local File = string.format("%s/%s/%s.lua", MainFileName, tostring(game.PlaceId), FileName)  
+        if isfile(File) then
+            local ConfigData = HttpService:JSONDecode(readfile(File))  
+            for Index, Value in pairs(ConfigData) do  
+                if SilentAimSettings[Index] ~= nil then
+                    SilentAimSettings[Index] = Value  
+                end
+            end
+        end
+    end)
+    return success
+end
+
+local function getPositionOnScreen(Vector)
+    local Vec3, OnScreen = WorldToScreen(Camera, Vector)
+    return Vector2.new(Vec3.X, Vec3.Y), OnScreen
+end
+
+local function ValidateArguments(Args, RayMethod)
+    if not Args or not RayMethod then return false end
+    local Matches = 0
+    if #Args < RayMethod.ArgCountRequired then
+        return false
+    end
+    for Pos, Argument in pairs(Args) do
+        if RayMethod.Args[Pos] and typeof(Argument) == RayMethod.Args[Pos] then
+            Matches = Matches + 1
+        end
+    end
+    return Matches >= RayMethod.ArgCountRequired
+end
+
+local function getDirection(Origin, Position)
+    return (Position - Origin).Unit * 1000
+end
+
+local function getMousePosition()
+    if IsMobile then
+        -- For mobile, use screen center
+        return Vector2.new(ScreenSize.X / 2, ScreenSize.Y / 2)
+    else
+        return GetMouseLocation(UserInputService)
+    end
+end
+
+local function getScreenCenter()
+    return Vector2.new(ScreenSize.X / 2, ScreenSize.Y / 2)
+end
+
+local function IsPlayerVisible(Player)
+    if not Player or not Player.Character then return false end
+    
+    local PlayerCharacter = Player.Character
+    local LocalPlayerCharacter = LocalPlayer.Character
+
+    if not (PlayerCharacter and LocalPlayerCharacter) then return false end   
+      
+    local PlayerRoot = FindFirstChild(PlayerCharacter, SilentAimSettings.TargetPart) or FindFirstChild(PlayerCharacter, "HumanoidRootPart")  
+      
+    if not PlayerRoot then return false end   
+      
+    local CastPoints = {PlayerRoot.Position}
+    local IgnoreList = {LocalPlayerCharacter, PlayerCharacter}
+    local ObscuringObjects = GetPartsObscuringTarget(Camera, CastPoints, IgnoreList)
+      
+    return #ObscuringObjects == 0
+end
+
+local function getClosestPlayer()
+    if not SilentAimSettings.TargetPart then return nil end
+    local Closest = nil
+    local DistanceToCenter = math.huge
+    local centerPos = IsMobile and getScreenCenter() or getMousePosition()
+    
+    for _, Player in pairs(GetPlayers(Players)) do
+        if Player == LocalPlayer then continue end
+        if SilentAimSettings.TeamCheck and Player.Team and LocalPlayer.Team and Player.Team == LocalPlayer.Team then continue end
+
+        local Character = Player.Character  
+        if not Character then continue end  
+          
+        if SilentAimSettings.VisibleCheck and not IsPlayerVisible(Player) then continue end  
+
+        local HumanoidRootPart = FindFirstChild(Character, "HumanoidRootPart")  
+        local Humanoid = FindFirstChild(Character, "Humanoid")  
+        if not HumanoidRootPart or not Humanoid or Humanoid.Health <= 0 then continue end  
+
+        local ScreenPosition, OnScreen = getPositionOnScreen(HumanoidRootPart.Position)  
+        if not OnScreen then continue end  
+
+        local Distance = (centerPos - ScreenPosition).Magnitude  
+        if Distance <= SilentAimSettings.FOVRadius and Distance < DistanceToCenter then  
+            local TargetPart = nil
+            if SilentAimSettings.TargetPart == "Random" then
+                TargetPart = Character[ValidTargetParts[math.random(1, #ValidTargetParts)]]
+            else
+                TargetPart = FindFirstChild(Character, SilentAimSettings.TargetPart)
+            end
+            
+            if TargetPart then
+                Closest = TargetPart
+                DistanceToCenter = Distance
+            end
+        end  
+    end  
+    return Closest
+end
+
+-- Load Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Create Window with mobile optimizations
+local Window = Rayfield:CreateWindow({
+    Name = "Universal Silent Aim" .. (IsMobile and " (Mobile)" or ""),
+    LoadingTitle = "Universal Silent Aim - Rayfield UI",
+    LoadingSubtitle = "Mobile Optimized Version",
+    ConfigurationSaving = {
+        Enabled = false, -- We'll handle this manually
+        FolderName = nil,
+        FileName = nil
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "",
+        RememberJoins = false
+    },
+    KeySystem = false
+})
+
+-- Main Tab
+local MainTab = Window:CreateTab("🎯 Main", 4483362458)
+
+-- Main Section
+local MainSection = MainTab:CreateSection("Core Settings")
+
+local EnabledToggle = MainTab:CreateToggle({
+    Name = "Enable Silent Aim",
+    CurrentValue = SilentAimSettings.Enabled,
+    Flag = "SilentAimEnabled",
+    Callback = function(Value)
+        SilentAimSettings.Enabled = Value
+        if not Value then
+            mouse_box.Visible = false
+        end
+    end,
+})
+
+local TeamCheckToggle = MainTab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = SilentAimSettings.TeamCheck,
+    Flag = "TeamCheck",
+    Callback = function(Value)
+        SilentAimSettings.TeamCheck = Value
+    end,
+})
+
+local VisibleCheckToggle = MainTab:CreateToggle({
+    Name = "Visible Check (Wall Check)",
+    CurrentValue = SilentAimSettings.VisibleCheck,
+    Flag = "VisibleCheck",
+    Callback = function(Value)
+        SilentAimSettings.VisibleCheck = Value
+    end,
+})
+
+local TargetPartDropdown = MainTab:CreateDropdown({
+    Name = "Target Part",
+    Options = {"Head", "HumanoidRootPart", "Random"},
+    CurrentOption = SilentAimSettings.TargetPart,
+    Flag = "TargetPart",
+    Callback = function(Option)
+        SilentAimSettings.TargetPart = Option
+    end,
+})
+
+local MethodDropdown = MainTab:CreateDropdown({
+    Name = "Silent Aim Method",
+    Options = {"Raycast", "FindPartOnRay", "FindPartOnRayWithWhitelist", "FindPartOnRayWithIgnoreList", "Mouse.Hit/Target"},
+    CurrentOption = SilentAimSettings.SilentAimMethod,
+    Flag = "SilentAimMethod",
+    Callback = function(Option)
+        SilentAimSettings.SilentAimMethod = Option
+    end,
+})
+
+local HitChanceSlider = MainTab:CreateSlider({
+    Name = "Hit Chance",
+    Range = {0, 100},
+    Increment = 1,
+    Suffix = "%",
+    CurrentValue = SilentAimSettings.HitChance,
+    Flag = "HitChance",
+    Callback = function(Value)
+        SilentAimSettings.HitChance = Value
+    end,
+})
+
+-- Visual Tab
+local VisualTab = Window:CreateTab("👁️ Visuals", 4483362458)
+
+local FOVSection = VisualTab:CreateSection("Field of View" .. (IsMobile and " (Center Screen)" or ""))
+
+local FOVToggle = VisualTab:CreateToggle({
+    Name = IsMobile and "Show FOV Circle (Center)" or "Show FOV Circle",
+    CurrentValue = SilentAimSettings.FOVVisible,
+    Flag = "FOVVisible",
+    Callback = function(Value)
+        SilentAimSettings.FOVVisible = Value
+        fov_circle.Visible = Value
+    end,
+})
+
+local FOVRadiusSlider = VisualTab:CreateSlider({
+    Name = "FOV Radius",
+    Range = {50, 500},
+    Increment = 5,
+    Suffix = "px",
+    CurrentValue = SilentAimSettings.FOVRadius,
+    Flag = "FOVRadius",
+    Callback = function(Value)
+        SilentAimSettings.FOVRadius = Value
+        fov_circle.Radius = Value
+    end,
+})
+
+local FOVColorPicker = VisualTab:CreateColorPicker({
+    Name = "FOV Circle Color",
+    Color = Color3.fromRGB(255, 255, 255),
+    Flag = "FOVColor",
+    Callback = function(Value)
+        fov_circle.Color = Value
+    end
+})
+
+local TargetSection = VisualTab:CreateSection("Target Visualization")
+
+local TargetToggle = VisualTab:CreateToggle({
+    Name = "Show Target Indicator",
+    CurrentValue = SilentAimSettings.ShowSilentAimTarget,
+    Flag = "ShowTarget",
+    Callback = function(Value)
+        SilentAimSettings.ShowSilentAimTarget = Value
+        if not Value then
+            mouse_box.Visible = false
+        end
+    end,
+})
+
+local TargetColorPicker = VisualTab:CreateColorPicker({
+    Name = "Target Indicator Color",
+    Color = Color3.fromRGB(255, 0, 0),
+    Flag = "TargetColor",
+    Callback = function(Value)
+        mouse_box.Color = Value
+    end
+})
+
+-- Prediction Tab
+local PredictionTab = Window:CreateTab("🔮 Prediction", 4483362458)
+
+local PredictionSection = PredictionTab:CreateSection("Mouse Hit Prediction")
+
+local PredictionToggle = PredictionTab:CreateToggle({
+    Name = "Enable Prediction",
+    CurrentValue = SilentAimSettings.MouseHitPrediction,
+    Flag = "MouseHitPrediction",
+    Callback = function(Value)
+        SilentAimSettings.MouseHitPrediction = Value
+    end,
+})
+
+local PredictionSlider = PredictionTab:CreateSlider({
+    Name = "Prediction Amount",
+    Range = {0.1, 1},
+    Increment = 0.01,
+    Suffix = "s",
+    CurrentValue = SilentAimSettings.MouseHitPredictionAmount,
+    Flag = "PredictionAmount",
+    Callback = function(Value)
+        SilentAimSettings.MouseHitPredictionAmount = Value
+        PredictionAmount = Value
+    end,
+})
+
+-- Config Tab
+local ConfigTab = Window:CreateTab("⚙️ Config", 4483362458)
+
+local ConfigSection = ConfigTab:CreateSection("Configuration Management")
+
+-- Mobile-friendly file input
+local FileNameInput = ConfigTab:CreateInput({
+    Name = "Configuration Name",
+    PlaceholderText = "Enter config name...",
+    RemoveTextAfterFocusLost = false,
+    Flag = "ConfigName",
+    Callback = function(Text)
+        FileToSave = Text
+    end,
+})
+
+local CreateConfigButton = ConfigTab:CreateButton({
+    Name = "💾 Create Configuration",
+    Callback = function()
+        if FileToSave and FileToSave ~= "" then
+            if UpdateFile(FileToSave) then
+                Rayfield:Notify({
+                    Title = "Configuration Saved",
+                    Content = "Configuration '" .. FileToSave .. "' saved successfully!",
+                    Duration = 3,
+                    Image = 4483362458
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Error",
+                    Content = "Failed to save configuration",
+                    Duration = 3,
+                    Image = 4483362458
+                })
+            end
+        else
+            Rayfield:Notify({
+                Title = "Invalid Name",
+                Content = "Please enter a valid configuration name",
+                Duration = 3,
+                Image = 4483362458
+            })
+        end
+    end,
+})
+
+-- Load existing configs
+local availableConfigs = GetFiles()
+if #availableConfigs > 0 then
+    local ConfigDropdown = ConfigTab:CreateDropdown({
+        Name = "📁 Load Configuration",
+        Options = availableConfigs,
+        CurrentOption = "",
+        Flag = "LoadConfig",
+        Callback = function(Option)
+            if Option and Option ~= "" and table.find(availableConfigs, Option) then
+                if LoadFile(Option) then
+                    -- Update UI elements
+                    EnabledToggle:Set(SilentAimSettings.Enabled)
+                    TeamCheckToggle:Set(SilentAimSettings.TeamCheck)
+                    VisibleCheckToggle:Set(SilentAimSettings.VisibleCheck)
+                    TargetPartDropdown:Set(SilentAimSettings.TargetPart)
+                    MethodDropdown:Set(SilentAimSettings.SilentAimMethod)
+                    HitChanceSlider:Set(SilentAimSettings.HitChance)
+                    FOVToggle:Set(SilentAimSettings.FOVVisible)
+                    FOVRadiusSlider:Set(SilentAimSettings.FOVRadius)
+                    TargetToggle:Set(SilentAimSettings.ShowSilentAimTarget)
+                    PredictionToggle:Set(SilentAimSettings.MouseHitPrediction)
+                    PredictionSlider:Set(SilentAimSettings.MouseHitPredictionAmount)
+                    
+                    -- Update visuals
+                    fov_circle.Visible = SilentAimSettings.FOVVisible
+                    fov_circle.Radius = SilentAimSettings.FOVRadius
+                    
+                    Rayfield:Notify({
+                        Title = "Configuration Loaded",
+                        Content = "Configuration '" .. Option .. "' loaded successfully!",
+                        Duration = 3,
+                        Image = 4483362458
+                    })
+                else
+                    Rayfield:Notify({
+                        Title = "Load Error",
+                        Content = "Failed to load configuration '" .. Option .. "'",
+                        Duration = 3,
+                        Image = 4483362458
+                    })
+                end
+            end
+        end,
+    })
+end
+
+-- Mobile-friendly keybind (only for PC)
+if not IsMobile then
+    local KeybindSection = ConfigTab:CreateSection("Keybind Controls")
+    
+    local ToggleKeybind = ConfigTab:CreateKeybind({
+        Name = "Toggle Silent Aim",
+        CurrentKeybind = "RightAlt",
+        HoldToInteract = false,
+        Flag = "ToggleKeybind",
+        Callback = function()
+            local newValue = not SilentAimSettings.Enabled
+            SilentAimSettings.Enabled = newValue
+            EnabledToggle:Set(newValue)
+            if not newValue then
+                mouse_box.Visible = false
+            end
+        end,
+    })
+end
+
+-- Info Tab
+local InfoTab = Window:CreateTab("ℹ️ Info", 4483362458)
+local InfoSection = InfoTab:CreateSection("Information")
+
+InfoTab:CreateParagraph({
+    Title = "Device Information",
+    Content = "Device Type: " .. (IsMobile and "Mobile Device" or "Desktop/PC") .. "\nScreen Size: " .. tostring(math.floor(ScreenSize.X)) .. "x" .. tostring(math.floor(ScreenSize.Y)) .. "\nFOV Position: " .. (IsMobile and "Screen Center" or "Mouse Position")
+})
+
+InfoTab:CreateParagraph({
+    Title = "Mobile Features",
+    Content = "• FOV circle is centered on screen\n• Larger UI elements for touch\n• Optimized target detection\n• Touch-friendly configuration"
+})
+
+-- Perfect render loop with error handling
+local RenderConnection
+RenderConnection = RenderStepped:Connect(function()
+    pcall(function()
+        -- Update screen size for dynamic scaling
+        ScreenSize = Camera.ViewportSize
+        
+        -- Handle target visualization
+        if SilentAimSettings.ShowSilentAimTarget and SilentAimSettings.Enabled then
+            local target = getClosestPlayer()
+            if target and target.Parent then
+                local Root = target.Parent:FindFirstChild("HumanoidRootPart") or target
+                if Root then
+                    local RootToViewportPoint, IsOnScreen = WorldToViewportPoint(Camera, Root.Position)
+                    
+                    mouse_box.Visible = IsOnScreen  
+                    mouse_box.Position = Vector2.new(RootToViewportPoint.X - mouse_box.Size.X/2, RootToViewportPoint.Y - mouse_box.Size.Y/2)  
+                else
+                    mouse_box.Visible = false
+                end
+            else   
+                mouse_box.Visible = false   
+            end  
+        else
+            mouse_box.Visible = false
+        end
+          
+        -- Handle FOV circle (centered for mobile, mouse for PC)
+        if SilentAimSettings.FOVVisible then   
+            fov_circle.Visible = true
+            if IsMobile then
+                fov_circle.Position = getScreenCenter()
+            else
+                fov_circle.Position = getMousePosition()
+            end
+        else
+            fov_circle.Visible = false
+        end  
+    end)
+end)
+
+-- Perfect hooks with comprehensive error handling
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
+    local success, result = pcall(function()
+        local Method = getnamecallmethod()
+        local Arguments = {...}
+        local self = Arguments[1]
+        
+        if not SilentAimSettings.Enabled or checkcaller() then
+            return oldNamecall(...)
+        end
+        
+        if not CalculateChance(SilentAimSettings.HitChance) then
+            return oldNamecall(...)
+        end
+        
+        if self ~= workspace then
+            return oldNamecall(...)
+        end
+        
+        local HitPart = getClosestPlayer()
+        if not HitPart then
+            return oldNamecall(...)
+        end
+        
+        if Method == "FindPartOnRayWithIgnoreList" and SilentAimSettings.SilentAimMethod == Method then
+            if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRayWithIgnoreList) then
+                local A_Ray = Arguments[2]
+                local Origin = A_Ray.Origin  
+                local Direction = getDirection(Origin, HitPart.Position)  
+                Arguments[2] = Ray.new(Origin, Direction)  
+                return oldNamecall(unpack(Arguments))
+            end  
+        elseif Method == "FindPartOnRayWithWhitelist" and SilentAimSettings.SilentAimMethod == Method then  
+            if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRayWithWhitelist) then  
+                local A_Ray = Arguments[2]  
+                local Origin = A_Ray.Origin  
+                local Direction = getDirection(Origin, HitPart.Position)  
+                Arguments[2] = Ray.new(Origin, Direction)  
+                return oldNamecall(unpack(Arguments))
+            end  
+        elseif (Method == "FindPartOnRay" or Method == "findPartOnRay") and SilentAimSettings.SilentAimMethod:lower() == Method:lower() then  
+            if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRay) then  
+                local A_Ray = Arguments[2]  
+                local Origin = A_Ray.Origin  
+                local Direction = getDirection(Origin, HitPart.Position)  
+                Arguments[2] = Ray.new(Origin, Direction)  
+                return oldNamecall(unpack(Arguments))
+            end  
+        elseif Method == "Raycast" and SilentAimSettings.SilentAimMethod == Method then  
+            if ValidateArguments(Arguments, ExpectedArguments.Raycast) then  
+                local A_Origin = Arguments[2]  
+                Arguments[3] = getDirection(A_Origin, HitPart.Position)  
+                return oldNamecall(unpack(Arguments))
+            end  
+        end
+        
+        return oldNamecall(...)
+    end)
+    
+    if success then
+        return result
+    else
+        return oldNamecall(...)
+    end
+end))
+
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, Index)
+    local success, result = pcall(function()
+        if self == Mouse and not checkcaller() and SilentAimSettings.Enabled and SilentAimSettings.SilentAimMethod == "Mouse.Hit/Target" then
+            local HitPart = getClosestPlayer()
+            if HitPart then
+                if Index == "Target" or Index == "target" then   
+                    return HitPart  
+                elseif Index == "Hit" or Index == "hit" then   
+                    if SilentAimSettings.MouseHitPrediction then
+                        return HitPart.CFrame + (HitPart.Velocity * PredictionAmount)
+                    else
+                        return HitPart.CFrame
+                    end
+                elseif Index == "X" or Index == "x" then   
+                    return oldIndex(self, Index)
+                elseif Index == "Y" or Index == "y" then   
+                    return oldIndex(self, Index)
+                elseif Index == "UnitRay" then   
+                    local hit = SilentAimSettings.MouseHitPrediction and (HitPart.CFrame + (HitPart.Velocity * PredictionAmount)) or HitPart.CFrame
+                    return Ray.new(oldIndex(self, "Origin"), (hit.Position - oldIndex(self, "Origin")).Unit)
+                end
+            end
+        end  
+
+        return oldIndex(self, Index)
+    end)
+    
+    if success then
+        return result
+    else
+        return oldIndex(self, Index)
+    end
+end))
+
+-- Mobile notification and final setup
+if IsMobile then
+    wait(1)
+    Rayfield:Notify({
+        Title = "Mobile Optimized",
+        Content = "FOV circle centered on screen for mobile use",
+        Duration = 5,
+        Image = 4483362458
+    })
+end
+
+Rayfield:Notify({
+    Title = "Silent Aim Loaded",
+    Content = "Universal Silent Aim successfully loaded!",
+    Duration = 3,
+    Image = 4483362458
+})
+
+-- Cleanup function
+game:BindToClose(function()
+    if RenderConnection then
+        RenderConnection:Disconnect()
+    end
+end)
