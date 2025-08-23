@@ -203,16 +203,20 @@ end
 
 local currentTargetHead = nil
 
-
 local function enableAimbot()
     if aimbotConnection then aimbotConnection:Disconnect() end
     AimbotFOVCircle.Visible = true
     aimbotLoop = true
     aimbotConnection = RunService.RenderStepped:Connect(function()
         if not aimbotLoop then return end
-        local mousePos = UserInputService:GetMouseLocation()
-        AimbotFOVCircle.Position = Vector2.new(mousePos.X, mousePos.Y)
+        
+        -- Keep FOV circle centered on screen (FIXED!)
+        local camera = Workspace.CurrentCamera
+        local screenCenter = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+        AimbotFOVCircle.Position = screenCenter
         AimbotFOVCircle.Radius = aimbotFOV
+        
+        -- Use screen center instead of mouse position for FOV calculations
         local heads = getAllEnemyHeadsInFOV()
         if #heads > 0 then
             -- Lock camera to the first head (or cycle, or do something else)
@@ -221,66 +225,103 @@ local function enableAimbot()
     end)
 end
 
-local function disableAimbot()
-    aimbotLoop = false
-    if aimbotConnection then
-        aimbotConnection:Disconnect()
-        aimbotConnection = nil
+-- Also update your getAllEnemyHeadsInFOV() function to use screen center:
+
+local function getAllEnemyHeadsInFOV()
+    local camera = Workspace.CurrentCamera
+    local screenCenter = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2) -- Changed from mouse position
+    local localTeam = LocalPlayer.Character and LocalPlayer.Character:GetAttribute("Team")
+    local heads = {}
+
+    -- Roblox Players (Character)
+    for _, player in Players:GetPlayers() do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local playerTeam = player.Character:GetAttribute("Team")
+            if not localTeam or not playerTeam or localTeam ~= playerTeam or localTeam == -1 then
+                local head = player.Character.Head
+                local screenPos, onScreen = camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude -- Changed to screenCenter
+                    if dist <= aimbotFOV then
+                        table.insert(heads, head)
+                    end
+                end
+            end
+        end
     end
-    AimbotFOVCircle.Visible = false
-end
 
-local headLockConnection
-
-local function enableHeadLock()
-    headLockConnection = RunService.RenderStepped:Connect(function()
-        if headLockLoop then
-            local camera = Workspace.CurrentCamera
-            local localTeam = LocalPlayer.Character and LocalPlayer.Character:GetAttribute("Team")
-
-            -- Lock all enemy heads (Players, UGC models, Mobs) to camera
-
-            -- Roblox Players
-            for _, player in Players:GetPlayers() do
-                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-                    local playerTeam = player.Character:GetAttribute("Team")
-                    if not localTeam or not playerTeam or localTeam ~= playerTeam or localTeam == -1 then
-                        local head = player.Character.Head
-                        head.CFrame = camera.CFrame + camera.CFrame.LookVector * 7
-                    end
-                end
-            end
-
-            -- UGC workspace player models
-            local ugc = Workspace:FindFirstChild("ugc")
-            if ugc and ugc:FindFirstChild("workspace") then
-                for _, playerModel in ipairs(ugc.workspace:GetChildren()) do
-                    if playerModel:IsA("Model") then
-                        local modelTeam = playerModel:GetAttribute("Team")
-                        if not localTeam or not modelTeam or localTeam ~= modelTeam or localTeam == -1 then
-                            local head = playerModel:FindFirstChild("Head")
-                            if head then
-                                head.CFrame = camera.CFrame + camera.CFrame.LookVector * 6
-                            end
-                        end
-                    end
-                end
-            end
-
-            -- Mobs
-            if MobsFolder then
-                for _, mob in MobsFolder:GetChildren() do
-                    if mob:IsA("Model") and mob:FindFirstChild("Head") then
-                        local mobTeam = mob:GetAttribute("Team")
-                        if not localTeam or not mobTeam or localTeam ~= mobTeam or localTeam == -1 then
-                            local head = mob:FindFirstChild("Head")
-                            head.CFrame = camera.CFrame + camera.CFrame.LookVector * 5
+    -- Workspace models named after players (for real player models)
+    for _, model in ipairs(Workspace:GetChildren()) do
+        if model:IsA("Model") and model:FindFirstChild("Head") then
+            -- Skip mobs
+            if MobsFolder and model.Parent == MobsFolder then continue end
+            -- Try to match model name to a player
+            local isPlayerModel = Players:FindFirstChild(model.Name)
+            if isPlayerModel then
+                local modelTeam = model:GetAttribute("Team")
+                if not localTeam or not modelTeam or localTeam ~= modelTeam or localTeam == -1 then
+                    local head = model:FindFirstChild("Head")
+                    local screenPos, onScreen = camera:WorldToViewportPoint(head.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude -- Changed to screenCenter
+                        if dist <= aimbotFOV then
+                            table.insert(heads, head)
                         end
                     end
                 end
             end
         end
-    end)
+    end
+
+    -- UGC workspace player models (only Head)
+    local ugc = Workspace:FindFirstChild("ugc")
+    if ugc and ugc:FindFirstChild("workspace") then
+        for _, playerModel in ipairs(ugc.workspace:GetChildren()) do
+            if playerModel:IsA("Model") then
+                local modelTeam = playerModel:GetAttribute("Team")
+                if not localTeam or not modelTeam or localTeam ~= modelTeam or localTeam == -1 then
+                    local head = playerModel:FindFirstChild("Head")
+                    if head then
+                        local screenPos, onScreen = camera:WorldToViewportPoint(head.Position)
+                        if onScreen then
+                            local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude -- Changed to screenCenter
+                            if dist <= aimbotFOV then
+                                table.insert(heads, head)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Mobs
+    if MobsFolder then
+        for _, mob in MobsFolder:GetChildren() do
+            if mob:IsA("Model") and mob:FindFirstChild("Head") then
+                local mobTeam = mob:GetAttribute("Team")
+                if not localTeam or not mobTeam or localTeam ~= mobTeam or localTeam == -1 then
+                    local head = mob:FindFirstChild("Head")
+                    local screenPos, onScreen = camera:WorldToViewportPoint(head.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude -- Changed to screenCenter
+                        if dist <= aimbotFOV then
+                            table.insert(heads, head)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Debug: print all detected heads and their parent names
+    print("[Aimbot] Heads detected in FOV:")
+    for i, head in ipairs(heads) do
+        local parentName = head.Parent and head.Parent.Name or "Unknown"
+        print(i, head.Name, "Parent:", parentName)
+    end
+
+    return heads
 end
 
 local function disableHeadLock()
