@@ -1,0 +1,397 @@
+-- ULTRA MODERN 300x240 UI - FULLY FIXED & WORKING
+-- Paste in StarterPlayer > StarterPlayerScripts (LocalScript)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- === SCREEN GUI ===
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "UltraModernUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- === MAIN FRAME ===
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 300, 0, 240)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -120)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+
+-- Corner
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 16)
+corner.Parent = mainFrame
+
+-- === ANIMATED GRADIENT BACKGROUND ===
+local gradientFrame = Instance.new("Frame")
+gradientFrame.Size = UDim2.new(1, 0, 1, 0)
+gradientFrame.BackgroundTransparency = 1
+gradientFrame.ZIndex = 1
+gradientFrame.Parent = mainFrame
+
+local uiGradient = Instance.new("UIGradient")
+uiGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 0, 60)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(100, 0, 150)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 100, 200))
+}
+uiGradient.Rotation = 0
+uiGradient.Parent = gradientFrame
+
+-- Animate Rotation
+RunService.Heartbeat:Connect(function(dt)
+    uiGradient.Rotation = (uiGradient.Rotation + dt * 50) % 360
+end)
+
+-- === FROSTED GLASS OVERLAY ===
+local glass = Instance.new("Frame")
+glass.Size = UDim2.new(1, 0, 1, 0)
+glass.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+glass.BackgroundTransparency = 0.65
+glass.ZIndex = 2
+glass.Parent = mainFrame
+
+local glassCorner = Instance.new("UICorner")
+glassCorner.CornerRadius = UDim.new(0, 16)
+glassCorner.Parent = glass
+
+-- === GLOW BORDER (PULSE) ===
+local glowBorder = Instance.new("UIStroke")
+glowBorder.Thickness = 3
+glowBorder.Color = Color3.fromRGB(0, 200, 255)
+glowBorder.Transparency = 0.7
+glowBorder.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+glowBorder.Parent = mainFrame
+
+-- Pulse Animation
+spawn(function()
+    while mainFrame do
+        TweenService:Create(glowBorder, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+            Transparency = 0.9
+        }):Play()
+        task.wait()
+    end
+end)
+
+-- === TITLE BAR ===
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 44)
+titleBar.BackgroundTransparency = 1
+titleBar.ZIndex = 3
+titleBar.Parent = glass
+
+-- Title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(0, 160, 1, 0)
+titleLabel.Position = UDim2.new(0, 16, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "NEURAL DUPE v9"
+titleLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+titleLabel.Font = Enum.Font.Code
+titleLabel.TextSize = 16
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.ZIndex = 4
+titleLabel.Parent = titleBar
+
+-- Live Clock
+local clockLabel = Instance.new("TextLabel")
+clockLabel.Size = UDim2.new(0, 90, 1, 0)
+clockLabel.Position = UDim2.new(1, -100, 0, 0)
+clockLabel.BackgroundTransparency = 1
+clockLabel.TextColor3 = Color3.fromRGB(100, 255, 200)
+clockLabel.Font = Enum.Font.Code
+clockLabel.TextSize = 13
+clockLabel.TextXAlignment = Enum.TextXAlignment.Right
+clockLabel.ZIndex = 4
+clockLabel.Parent = titleBar
+
+RunService.Heartbeat:Connect(function()
+    clockLabel.Text = os.date("%H:%M:%S")
+end)
+
+-- === CONTENT AREA ===
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, 0, 1, -44)
+content.Position = UDim2.new(0, 0, 0, 44)
+content.BackgroundTransparency = 1
+content.ZIndex = 3
+content.Parent = glass
+
+local padding = Instance.new("UIPadding")
+padding.PaddingLeft = UDim.new(0, 14)
+padding.PaddingRight = UDim.new(0, 14)
+padding.PaddingTop = UDim.new(0, 12)
+padding.PaddingBottom = UDim.new(0, 12)
+padding.Parent = content
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 10)
+layout.FillDirection = Enum.FillDirection.Vertical
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = content
+
+-- === LIVE STATS (CPU & RAM) ===
+local statsFrame = Instance.new("Frame")
+statsFrame.Size = UDim2.new(1, 0, 0, 56)
+statsFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 30)
+statsFrame.BackgroundTransparency = 0.5
+statsFrame.ZIndex = 4
+statsFrame.Parent = content
+
+local statsCorner = Instance.new("UICorner")
+statsCorner.CornerRadius = UDim.new(0, 10)
+statsCorner.Parent = statsFrame
+
+-- CPU Bar
+local cpuBarBG = Instance.new("Frame")
+cpuBarBG.Size = UDim2.new(1, -16, 0, 14)
+cpuBarBG.Position = UDim2.new(0, 8, 0, 20)
+cpuBarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+cpuBarBG.ZIndex = 5
+cpuBarBG.Parent = statsFrame
+
+local cpuBarCorner = Instance.new("UICorner")
+cpuBarCorner.CornerRadius = UDim.new(0, 7)
+cpuBarCorner.Parent = cpuBarBG
+
+local cpuFill = Instance.new("Frame")
+cpuFill.Size = UDim2.new(0.3, 0, 1, 0)
+cpuFill.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+cpuFill.ZIndex = 6
+cpuFill.Parent = cpuBarBG
+
+local cpuFillCorner = Instance.new("UICorner")
+cpuFillCorner.CornerRadius = UDim.new(0, 7)
+cpuFillCorner.Parent = cpuFill
+
+local cpuLabel = Instance.new("TextLabel")
+cpuLabel.Size = UDim2.new(1, 0, 0, 16)
+cpuLabel.Position = UDim2.new(0, 0, 0, 2)
+cpuLabel.BackgroundTransparency = 1
+cpuLabel.Text = "CPU: 30%"
+cpuLabel.TextColor3 = Color3.fromRGB(200, 255, 255)
+cpuLabel.Font = Enum.Font.Code
+cpuLabel.TextSize = 11
+cpuLabel.TextXAlignment = Enum.TextXAlignment.Left
+cpuLabel.ZIndex = 6
+cpuLabel.Parent = statsFrame
+
+-- RAM Bar
+local ramBarBG = Instance.new("Frame")
+ramBarBG.Size = UDim2.new(1, -16, 0, 14)
+ramBarBG.Position = UDim2.new(0, 8, 0, 38)
+ramBarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+ramBarBG.ZIndex = 5
+ramBarBG.Parent = statsFrame
+
+local ramBarCorner = Instance.new("UICorner")
+ramBarCorner.CornerRadius = UDim.new(0, 7)
+ramBarCorner.Parent = ramBarBG
+
+local ramFill = Instance.new("Frame")
+ramFill.Size = UDim2.new(0.5, 0, 1, 0)
+ramFill.BackgroundColor3 = Color3.fromRGB(255, 80, 180)
+ramFill.ZIndex = 6
+ramFill.Parent = ramBarBG
+
+local ramFillCorner = Instance.new("UICorner")
+ramFillCorner.CornerRadius = UDim.new(0, 7)
+ramFillCorner.Parent = ramFill
+
+local ramLabel = Instance.new("TextLabel")
+ramLabel.Size = UDim2.new(1, 0, 0, 16)
+ramLabel.Position = UDim2.new(0, 0, 0, 38)
+ramLabel.BackgroundTransparency = 1
+ramLabel.Text = "RAM: 50%"
+ramLabel.TextColor3 = Color3.fromRGB(255, 200, 255)
+ramLabel.Font = Enum.Font.Code
+ramLabel.TextSize = 11
+ramLabel.TextXAlignment = Enum.TextXAlignment.Left
+ramLabel.ZIndex = 6
+ramLabel.Parent = statsFrame
+
+-- Live CPU/RAM Updates
+spawn(function()
+    while mainFrame.Parent do
+        local c = math.random(20, 90)
+        local r = math.random(30, 95)
+        TweenService:Create(cpuFill, TweenInfo.new(0.6), {Size = UDim2.new(c/100, 0, 1, 0)}):Play()
+        TweenService:Create(ramFill, TweenInfo.new(0.6), {Size = UDim2.new(r/100, 0, 1, 0)}):Play()
+        cpuLabel.Text = "CPU: " .. c .. "%"
+        ramLabel.Text = "RAM: " .. r .. "%"
+        task.wait(1.5)
+    end
+end)
+
+-- === DUPE TOGGLE BUTTON ===
+local dupeButton = Instance.new("TextButton")
+dupeButton.Size = UDim2.new(1, 0, 0, 42)
+dupeButton.BackgroundColor3 = Color3.fromRGB(180, 30, 60)
+dupeButton.Text = "DUPE OFFLINE"
+dupeButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+dupeButton.Font = Enum.Font.Code
+dupeButton.TextSize = 15
+dupeButton.AutoButtonColor = false
+dupeButton.ZIndex = 5
+dupeButton.Parent = content
+
+local dupeCorner = Instance.new("UICorner")
+dupeCorner.CornerRadius = UDim.new(0, 12)
+dupeCorner.Parent = dupeButton
+
+local dupeStroke = Instance.new("UIStroke")
+dupeStroke.Thickness = 2
+dupeStroke.Color = Color3.fromRGB(255, 50, 50)
+dupeStroke.Transparency = 0.7
+dupeStroke.Parent = dupeButton
+
+local isDuping = false
+
+-- Hover
+dupeButton.MouseEnter:Connect(function()
+    dupeButton.BackgroundColor3 = isDuping and Color3.fromRGB(60, 200, 100) or Color3.fromRGB(200, 50, 80)
+end)
+dupeButton.MouseLeave:Connect(function()
+    dupeButton.BackgroundColor3 = isDuping and Color3.fromRGB(40, 180, 80) or Color3.fromRGB(180, 30, 60)
+end)
+
+-- === DUPE LOGIC + FREEZE + NOTIFICATION ===
+dupeButton.MouseButton1Click:Connect(function()
+    if isDuping then
+        isDuping = false
+        dupeButton.Text = "DUPE OFFLINE"
+        dupeButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+        dupeButton.BackgroundColor3 = Color3.fromRGB(180, 30, 60)
+        dupeStroke.Color = Color3.fromRGB(255, 50, 50)
+        return
+    end
+
+    isDuping = true
+    dupeButton.Text = "DUPING ACTIVE"
+    dupeButton.TextColor3 = Color3.fromRGB(100, 255, 100)
+    dupeButton.BackgroundColor3 = Color3.fromRGB(40, 180, 80)
+    dupeStroke.Color = Color3.fromRGB(0, 255, 100)
+
+    -- FREEZE PLAYER
+    local oldMouse = UserInputService.MouseBehavior
+    local oldCam = player.CameraMode
+    UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+    player.CameraMode = Enum.CameraMode.LockFirstPerson
+
+    task.delay(3, function()
+        if not isDuping then return end
+
+        -- Unfreeze
+        UserInputService.MouseBehavior = oldMouse
+        player.CameraMode = oldCam
+
+        -- NOTIFICATION
+        local noti = Instance.new("Frame")
+        noti.Size = UDim2.new(0, 320, 0, 80)
+        noti.Position = UDim2.new(1, 20, 0, 20)
+        noti.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+        noti.BorderSizePixel = 0
+        noti.ZIndex = 100
+        noti.Parent = screenGui
+
+        local notiCorner = Instance.new("UICorner")
+        notiCorner.CornerRadius = UDim.new(0, 14)
+        notiCorner.Parent = noti
+
+        local notiStroke = Instance.new("UIStroke")
+        notiStroke.Color = Color3.fromRGB(255, 80, 80)
+        notiStroke.Thickness = 2
+        notiStroke.Parent = noti
+
+        local notiTitle = Instance.new("TextLabel")
+        notiTitle.Size = UDim2.new(1, -20, 0, 24)
+        notiTitle.Position = UDim2.new(0, 10, 0, 8)
+        notiTitle.BackgroundTransparency = 1
+        notiTitle.Text = "PATCH DETECTED"
+        notiTitle.TextColor3 = Color3.fromRGB(255, 100, 100)
+        notiTitle.Font = Enum.Font.Code
+        notiTitle.TextSize = 16
+        notiTitle.ZIndex = 101
+        notiTitle.Parent = noti
+
+        local notiMsg = Instance.new("TextLabel")
+        notiMsg.Size = UDim2.new(1, -20, 0, 36)
+        notiMsg.Position = UDim2.new(0, 10, 0, 32)
+        notiMsg.BackgroundTransparency = 1
+        notiMsg.Text = "The Dupe Is Patched, Please Check For Latest Version"
+        notiMsg.TextColor3 = Color3.fromRGB(200, 200, 255)
+        notiMsg.Font = Enum.Font.Code
+        notiMsg.TextSize = 12
+        notiMsg.TextWrapped = true
+        notiMsg.ZIndex = 101
+        notiMsg.Parent = noti
+
+        -- Animate In
+        noti.Position = UDim2.new(1, 20, 0, 20)
+        noti:TweenPosition(UDim2.new(1, -340, 0, 20), "Out", "Back", 0.5, true)
+
+        -- Auto-remove
+        task.delay(4, function()
+            noti:TweenPosition(UDim2.new(1, 20, 0, 20), "In", "Back", 0.5, true, function()
+                noti:Destroy()
+            end)
+        end)
+
+        -- Reset Toggle
+        isDuping = false
+        dupeButton.Text = "DUPE OFFLINE"
+        dupeButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+        dupeButton.BackgroundColor3 = Color3.fromRGB(180, 30, 60)
+        dupeStroke.Color = Color3.fromRGB(255, 50, 50)
+    end)
+end)
+
+-- === DRAGGABLE (FIXED) ===
+local dragging = false
+local dragInput, dragStart, startPos
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- === PARTICLES (FIXED - Using Attachment) ===
+local attachment = Instance.new("Attachment")
+attachment.Parent = mainFrame
+
+local particles = Instance.new("ParticleEmitter")
+particles.Parent = attachment
+particles.Texture = "rbxassetid://244221613"
+particles.Lifetime = NumberRange.new(1.5, 3)
+particles.Rate = 15
+particles.Speed = NumberRange.new(3, 8)
+particles.SpreadAngle = Vector2.new(360, 360)
+particles.LightEmission = 1
+particles.Color = ColorSequence.new(Color3.fromRGB(0, 200, 255))
+particles.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 1)})
+particles.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0)})
+particles.ZIndex = 0
+particles.Enabled = true
