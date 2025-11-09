@@ -1,0 +1,323 @@
+--[[====================================================================
+                FEYK HUB - HITBOX EXPANDER UI v4.8 (Single-Size Input)
+       • Ultra Modern (Red Glow + Pitch Black) | Draggable Title Area
+       • Single Number Hitbox Size | Auto Cleanup | Smooth Tween Drag
+====================================================================]]--
+
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Stats = game:GetService("Stats")
+local LocalizationService = game:GetService("LocalizationService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+--// Config
+local CONFIG = {
+	HitboxSize = Vector3.new(10, 10, 10),
+	DefaultHRPSize = Vector3.new(2, 2, 1),
+	UpdateInterval = 2,
+	MinTransparency = 0,
+	MaxTransparency = 1
+}
+
+--// GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "FeykHubUI"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 420, 0, 300)
+MainFrame.Position = UDim2.new(1, -440, 0.5, -150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner", MainFrame)
+UICorner.CornerRadius = UDim.new(0, 20)
+
+local UIStroke = Instance.new("UIStroke", MainFrame)
+UIStroke.Color = Color3.fromRGB(255, 0, 50)
+UIStroke.Thickness = 2
+UIStroke.Transparency = 0.7
+
+--// Title Bar (Draggable)
+local TitleBar = Instance.new("Frame", MainFrame)
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.BackgroundTransparency = 1
+TitleBar.Active = true
+
+local Title = Instance.new("TextLabel", TitleBar)
+Title.Size = UDim2.new(1, 0, 1, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "FEYK HUB • HITBOX EXPANDER"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.TextColor3 = Color3.fromRGB(255, 50, 50)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Position = UDim2.new(0, 15, 0, 0)
+
+--// Animated rainbow title
+task.spawn(function()
+	while task.wait(0.05) do
+		local hue = (tick() * 0.3) % 1
+		Title.TextColor3 = Color3.fromHSV(hue, 1, 1)
+	end
+end)
+
+--// Smooth Drag
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function updateDrag(input)
+	local delta = input.Position - dragStart
+	local newPos = UDim2.new(
+		startPos.X.Scale,
+		startPos.X.Offset + delta.X,
+		startPos.Y.Scale,
+		startPos.Y.Offset + delta.Y
+	)
+	MainFrame:TweenPosition(newPos, Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.05, true)
+end
+
+TitleBar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = MainFrame.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+TitleBar.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		updateDrag(input)
+	end
+end)
+
+--// Info Text
+local InfoText = Instance.new("TextLabel", MainFrame)
+InfoText.Position = UDim2.new(0, 15, 0, 50)
+InfoText.Size = UDim2.new(1, -30, 0, 90)
+InfoText.BackgroundTransparency = 1
+InfoText.Font = Enum.Font.Gotham
+InfoText.TextSize = 13
+InfoText.TextColor3 = Color3.fromRGB(230, 230, 230)
+InfoText.TextXAlignment = Enum.TextXAlignment.Left
+InfoText.TextYAlignment = Enum.TextYAlignment.Top
+InfoText.Text = "Loading..."
+
+task.spawn(function()
+	while task.wait(0.5) do
+		local ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
+		local executor = identifyexecutor and identifyexecutor() or "Unknown"
+		local region = LocalizationService.RobloxLocaleId or "N/A"
+		local fps = math.floor(1 / (RunService.RenderStepped:Wait()))
+		local playerCount = #Players:GetPlayers()
+		InfoText.Text = string.format("👤 %s\n🌐 %s\n💡 %s\n🎮 %d players\n📡 %s | %d FPS",
+			LocalPlayer.Name, region, executor, playerCount, ping, fps)
+	end
+end)
+
+--// Toggle Button
+local ToggleButton = Instance.new("TextButton", MainFrame)
+ToggleButton.Position = UDim2.new(0.5, -100, 0, 160)
+ToggleButton.Size = UDim2.new(0, 200, 0, 40)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 30, 30)
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.TextSize = 15
+ToggleButton.Text = "ENABLE HITBOX"
+ToggleButton.AutoButtonColor = false
+
+local ToggleCorner = Instance.new("UICorner", ToggleButton)
+ToggleCorner.CornerRadius = UDim.new(0, 12)
+
+local ToggleStroke = Instance.new("UIStroke", ToggleButton)
+ToggleStroke.Color = Color3.fromRGB(255, 50, 50)
+ToggleStroke.Thickness = 1.8
+
+--// Hitbox Size (Single Number)
+local SizeLabel = Instance.new("TextLabel", MainFrame)
+SizeLabel.Position = UDim2.new(0, 40, 0, 210)
+SizeLabel.Size = UDim2.new(0, 180, 0, 30)
+SizeLabel.BackgroundTransparency = 1
+SizeLabel.Font = Enum.Font.GothamSemibold
+SizeLabel.TextSize = 14
+SizeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+SizeLabel.Text = "Hitbox Size:"
+
+local SizeBox = Instance.new("TextBox", MainFrame)
+SizeBox.Position = UDim2.new(0, 230, 0, 210)
+SizeBox.Size = UDim2.new(0, 120, 0, 30)
+SizeBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+SizeBox.Text = "10"
+SizeBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SizeBox.Font = Enum.Font.Gotham
+SizeBox.TextSize = 14
+SizeBox.ClearTextOnFocus = false
+SizeBox.PlaceholderText = "Ex: 10"
+
+local SizeCorner = Instance.new("UICorner", SizeBox)
+SizeCorner.CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", SizeBox).Color = Color3.fromRGB(255, 50, 50)
+
+--// Transparency
+local TransLabel = Instance.new("TextLabel", MainFrame)
+TransLabel.Position = UDim2.new(0, 40, 0, 250)
+TransLabel.Size = UDim2.new(0, 180, 0, 30)
+TransLabel.BackgroundTransparency = 1
+TransLabel.Font = Enum.Font.GothamSemibold
+TransLabel.TextSize = 14
+TransLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TransLabel.Text = "Visual Transparency:"
+
+local TransBox = Instance.new("TextBox", MainFrame)
+TransBox.Position = UDim2.new(0, 230, 0, 250)
+TransBox.Size = UDim2.new(0, 120, 0, 30)
+TransBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TransBox.Text = "0.5"
+TransBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TransBox.Font = Enum.Font.Gotham
+TransBox.TextSize = 14
+TransBox.ClearTextOnFocus = false
+TransBox.PlaceholderText = "0.0 - 1.0"
+
+local TransCorner = Instance.new("UICorner", TransBox)
+TransCorner.CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", TransBox).Color = Color3.fromRGB(255, 50, 50)
+
+--// Vars
+local HitboxEnabled = false
+local VisualTransparency = 0.5
+local OriginalHRPData = {}
+
+--// Functions
+local function SaveOriginalHRP(player)
+	if not player.Character then return end
+	local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+	if hrp and not OriginalHRPData[player] then
+		OriginalHRPData[player] = {
+			Size = hrp.Size,
+			Transparency = hrp.Transparency,
+			Color = hrp.Color,
+			Material = hrp.Material,
+			CanCollide = hrp.CanCollide
+		}
+	end
+end
+
+local function RestoreOriginalHRP(player)
+	local data = OriginalHRPData[player]
+	if not data then return end
+	local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		for prop, val in pairs(data) do
+			hrp[prop] = val
+		end
+	end
+	OriginalHRPData[player] = nil
+end
+
+local function ApplyHitbox(player)
+	if player == LocalPlayer or not player.Character then return end
+	local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	SaveOriginalHRP(player)
+	if HitboxEnabled then
+		hrp.Size = CONFIG.HitboxSize
+		hrp.Transparency = VisualTransparency
+		hrp.Color = Color3.fromRGB(255, 0, 50)
+		hrp.Material = Enum.Material.Neon
+		hrp.CanCollide = false
+	else
+		RestoreOriginalHRP(player)
+	end
+end
+
+local function UpdateAllHitboxes()
+	for _, plr in Players:GetPlayers() do
+		if plr ~= LocalPlayer then
+			ApplyHitbox(plr)
+		end
+	end
+end
+
+--// Input: Single Size
+SizeBox.FocusLost:Connect(function(enter)
+	if not enter then return end
+	local val = tonumber(SizeBox.Text)
+	if val and val > 0 then
+		CONFIG.HitboxSize = Vector3.new(val, val, val)
+		if HitboxEnabled then UpdateAllHitboxes() end
+	else
+		SizeBox.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+		task.delay(0.4, function()
+			SizeBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+		end)
+	end
+end)
+
+--// Transparency Input
+TransBox.FocusLost:Connect(function(enter)
+	if not enter then return end
+	local val = tonumber(TransBox.Text)
+	if val and val >= CONFIG.MinTransparency and val <= CONFIG.MaxTransparency then
+		VisualTransparency = val
+		if HitboxEnabled then UpdateAllHitboxes() end
+	else
+		TransBox.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+		task.delay(0.4, function()
+			TransBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+		end)
+	end
+end)
+
+--// Toggle Button Logic
+ToggleButton.MouseButton1Click:Connect(function()
+	HitboxEnabled = not HitboxEnabled
+	TweenService:Create(ToggleButton, TweenInfo.new(0.2), {
+		BackgroundColor3 = HitboxEnabled and Color3.fromRGB(255, 70, 70) or Color3.fromRGB(255, 30, 30)
+	}):Play()
+	ToggleButton.Text = HitboxEnabled and "DISABLE HITBOX" or "ENABLE HITBOX"
+	UpdateAllHitboxes()
+end)
+
+--// Player events
+Players.PlayerAdded:Connect(function(plr)
+	plr.CharacterAdded:Connect(function()
+		if HitboxEnabled then
+			task.wait(1)
+			ApplyHitbox(plr)
+		end
+	end)
+end)
+
+Players.PlayerRemoving:Connect(RestoreOriginalHRP)
+
+--// Auto Updater
+task.spawn(function()
+	while task.wait(CONFIG.UpdateInterval) do
+		if HitboxEnabled then
+			UpdateAllHitboxes()
+		end
+	end
+end)
+
+print("[FeykHub] Hitbox Expander v4.8 Loaded (Single Number Input)")
