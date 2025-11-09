@@ -1,0 +1,346 @@
+--// DupeX Pro v9.3 - ULTRA BRAINROT HORIZONTAL EDITION
+--// 100% fake. Always fails. Pure skit. Now HORIZONTAL + MODERN UI
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local pgui = player:WaitForChild("PlayerGui")
+
+--// SCREEN GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DupeX_Pro_Horizontal"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = pgui
+
+--// MAIN CONTAINER (HORIZONTAL SPLIT)
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0, 780, 0, 420)
+main.Position = UDim2.new(0.5, 0, 0.5, 0)
+main.AnchorPoint = Vector2.new(0.5, 0.5)
+main.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
+main.BorderSizePixel = 0
+main.ClipsDescendants = true
+main.Active = true
+main.Draggable = true
+main.Parent = screenGui
+
+--// CORNER & SHADOW
+local corner = Instance.new("UICorner", main)
+corner.CornerRadius = UDim.new(0, 20)
+
+local shadow = Instance.new("ImageLabel", main)
+shadow.Size = UDim2.new(1, 40, 1, 40)
+shadow.Position = UDim2.new(0, -20, 0, -20)
+shadow.BackgroundTransparency = 1
+shadow.Image = "rbxassetid://1316045217"
+shadow.ImageColor3 = Color3.new(0, 0, 0)
+shadow.ImageTransparency = 0.6
+shadow.ScaleType = Enum.ScaleType.Slice
+shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+shadow.ZIndex = 0
+
+--// GRADIENT BACKGROUND
+local grad = Instance.new("UIGradient", main)
+grad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 25, 50)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 25))
+}
+grad.Rotation = 135
+
+spawn(function()
+    local angle = 0
+    while task.wait() do
+        angle = (angle + 0.5) % 360
+        grad.Rotation = angle
+    end
+end)
+
+--// LEFT PANEL (Logo + Controls)
+local leftPanel = Instance.new("Frame", main)
+leftPanel.Size = UDim2.new(0.45, 0, 1, 0)
+leftPanel.BackgroundTransparency = 1
+leftPanel.Position = UDim2.new(0, 0, 0, 0)
+
+--// LOGO (Glitchy Title)
+local logo = Instance.new("TextLabel", leftPanel)
+logo.Size = UDim2.new(1, -40, 0, 70)
+logo.Position = UDim2.new(0, 20, 0, 20)
+logo.BackgroundTransparency = 1
+logo.Text = "DupeX"
+logo.TextColor3 = Color3.fromRGB(255, 80, 80)
+logo.Font = Enum.Font.Arcade
+logo.TextSize = 48
+logo.TextXAlignment = Enum.TextXAlignment.Left
+
+local pro = Instance.new("TextLabel", leftPanel)
+pro.Size = UDim2.new(0, 80, 0, 30)
+pro.Position = UDim2.new(0, 130, 0, 45)
+pro.BackgroundTransparency = 1
+pro.Text = "PRO v⁶⁷"
+pro.TextColor3 = Color3.fromRGB(100, 255, 100)
+pro.Font = Enum.Font.GothamBold
+pro.TextSize = 20
+
+-- Glitch effect
+spawn(function()
+    while task.wait(0.12) do
+        if math.random() < 0.35 then
+            logo.TextTransparency = math.random(0, 4) / 10
+            logo.Position = UDim2.new(0, 20 + math.random(-3, 3), 0, 20 + math.random(-2, 2))
+            pro.TextTransparency = math.random(0, 3) / 10
+        else
+            logo.TextTransparency = 0
+            pro.TextTransparency = 0
+            logo.Position = UDim2.new(0, 20, 0, 20)
+        end
+    end
+end)
+
+--// STATUS BAR
+local status = Instance.new("TextLabel", leftPanel)
+status.Size = UDim2.new(1, -40, 0, 36)
+status.Position = UDim2.new(0, 20, 0, 100)
+status.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
+status.Text = "Status: Ready"
+status.TextColor3 = Color3.fromRGB(100, 255, 100)
+status.Font = Enum.Font.Code
+status.TextSize = 15
+status.TextXAlignment = Enum.TextXAlignment.Left
+local sc = Instance.new("UICorner", status) sc.CornerRadius = UDim.new(0, 10)
+
+--// DUPE BUTTON (Big & Glowy)
+local dupeBtn = Instance.new("TextButton", leftPanel)
+dupeBtn.Size = UDim2.new(1, -40, 0, 60)
+dupeBtn.Position = UDim2.new(0, 20, 0, 150)
+dupeBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+dupeBtn.Text = "START DUPE"
+dupeBtn.TextColor3 = Color3.new(1, 1, 1)
+dupeBtn.Font = Enum.Font.GothamBlack
+dupeBtn.TextSize = 22
+local dbc = Instance.new("UICorner", dupeBtn) dbc.CornerRadius = UDim.new(0, 16)
+
+-- Glow effect
+local glow = Instance.new("UIStroke", dupeBtn)
+glow.Color = Color3.fromRGB(255, 100, 100)
+glow.Thickness = 2
+glow.Transparency = 0.7
+
+--// NOTE
+local note = Instance.new("TextLabel", leftPanel)
+note.Size = UDim2.new(1, -40, 0, 80)
+note.Position = UDim2.new(0, 20, 1, -100)
+note.AnchorPoint = Vector2.new(0, 1)
+note.BackgroundTransparency = 1
+note.Text = "Note : Hold Brainrot Item\nDo NOT move or open inventory!"
+note.TextColor3 = Color3.fromRGB(255, 220, 120)
+note.Font = Enum.Font.Gotham
+note.TextSize = 14
+note.TextWrapped = true
+note.TextYAlignment = Enum.TextYAlignment.Top
+
+--// RIGHT PANEL (Console + Progress)
+local rightPanel = Instance.new("Frame", main)
+rightPanel.Size = UDim2.new(0.55, 0, 1, 0)
+rightPanel.Position = UDim2.new(0.45, 0, 0, 0)
+rightPanel.BackgroundColor3 = Color3.fromRGB(12, 12, 28)
+local rc = Instance.new("UICorner", rightPanel) rc.CornerRadius = UDim.new(0, 20)
+
+--// CONSOLE TITLE
+local consoleTitle = Instance.new("TextLabel", rightPanel)
+consoleTitle.Size = UDim2.new(1, -20, 0, 30)
+consoleTitle.Position = UDim2.new(0, 10, 0, 10)
+consoleTitle.BackgroundTransparency = 1
+consoleTitle.Text = "DEBUG CONSOLE"
+consoleTitle.TextColor3 = Color3.fromRGB(150, 150, 255)
+consoleTitle.Font = Enum.Font.Code
+consoleTitle.TextSize = 13
+consoleTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+--// CONSOLE
+local console = Instance.new("ScrollingFrame", rightPanel)
+console.Size = UDim2.new(1, -20, 0, 210)
+console.Position = UDim2.new(0, 10, 0, 45)
+console.BackgroundColor3 = Color3.fromRGB(8, 8, 18)
+console.BorderSizePixel = 0
+console.ScrollBarThickness = 5
+console.AutomaticCanvasSize = Enum.AutomaticSize.Y
+console.CanvasSize = UDim2.new(0, 0, 0, 0)
+local cc = Instance.new("UICorner", console) cc.CornerRadius = UDim.new(0, 12)
+
+local logLayout = Instance.new("UIListLayout", console)
+logLayout.Padding = UDim.new(0, 3)
+logLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function log(text, color)
+    local line = Instance.new("TextLabel")
+    line.Size = UDim2.new(1, 0, 0, 18)
+    line.BackgroundTransparency = 1
+    line.Text = "> " .. text
+    line.TextColor3 = color or Color3.fromRGB(180, 180, 255)
+    line.Font = Enum.Font.Code
+    line.TextSize = 11.5
+    line.TextXAlignment = Enum.TextXAlignment.Left
+    line.Parent = console
+    console.CanvasPosition = Vector2.new(0, console.CanvasSize.Y.Offset)
+end
+
+--// PROGRESS BAR
+local progFrame = Instance.new("Frame", rightPanel)
+progFrame.Size = UDim2.new(1, -20, 0, 26)
+progFrame.Position = UDim2.new(0, 10, 1, -80)
+progFrame.AnchorPoint = Vector2.new(0, 1)
+progFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+local pc = Instance.new("UICorner", progFrame) pc.CornerRadius = UDim.new(0, 13)
+
+local progBar = Instance.new("Frame", progFrame)
+progBar.Size = UDim2.new(0, 0, 1, 0)
+progBar.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
+progBar.BorderSizePixel = 0
+local pbc = Instance.new("UICorner", progBar) pbc.CornerRadius = UDim.new(0, 13)
+
+local progLabel = Instance.new("TextLabel", progFrame)
+progLabel.Size = UDim2.new(1, 0, 1, 0)
+progLabel.BackgroundTransparency = 1
+progLabel.Text = "0%"
+progLabel.TextColor3 = Color3.new(1, 1, 1)
+progLabel.Font = Enum.Font.Code
+progLabel.TextSize = 13
+
+--// PARTICLE SYSTEM
+local particles = Instance.new("Frame", main)
+particles.Size = UDim2.new(1, 0, 1, 0)
+particles.BackgroundTransparency = 1
+particles.Visible = false
+particles.ZIndex = 10
+
+for i = 1, 25 do
+    local p = Instance.new("Frame")
+    p.Size = UDim2.new(0, 5, 0, 5)
+    p.BackgroundColor3 = Color3.fromHSV(math.random(), 1, 1)
+    p.BorderSizePixel = 0
+    local pc = Instance.new("UICorner", p) pc.CornerRadius = UDim.new(0, 3)
+    p.Parent = particles
+
+    spawn(function()
+        while task.wait(0.06) do
+            if not particles.Visible then break end
+            p.Position = UDim2.new(math.random(), 0, math.random(), 0)
+            p.BackgroundColor3 = Color3.fromHSV(tick() % 1, 1, 1)
+        end
+    end)
+end
+
+--// PATCH NOTIFICATION (YOUR CUSTOM ONE)
+local function showPatchNotification()
+    local noti = Instance.new("Frame")
+    noti.Size = UDim2.new(0, 340, 0, 90)
+    noti.Position = UDim2.new(1, 20, 0, 20)
+    noti.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    noti.BorderSizePixel = 0
+    noti.ZIndex = 200
+    noti.Parent = screenGui
+
+    local corner = Instance.new("UICorner", noti)
+    corner.CornerRadius = UDim.new(0, 16)
+
+    local stroke = Instance.new("UIStroke", noti)
+    stroke.Color = Color3.fromRGB(255, 80, 80)
+    stroke.Thickness = 2.5
+
+    local title = Instance.new("TextLabel", noti)
+    title.Size = UDim2.new(1, -20, 0, 28)
+    title.Position = UDim2.new(0, 10, 0, 10)
+    title.BackgroundTransparency = 1
+    title.Text = "PATCH DETECTED"
+    title.TextColor3 = Color3.fromRGB(255, 100, 100)
+    title.Font = Enum.Font.Code
+    title.TextSize = 18
+    title.ZIndex = 201
+
+    local msg = Instance.new("TextLabel", noti)
+    msg.Size = UDim2.new(1, -20, 0, 38)
+    msg.Position = UDim2.new(0, 10, 0, 38)
+    msg.BackgroundTransparency = 1
+    msg.Text = "The Dupe Is Patched, Please Check For Latest Version"
+    msg.TextColor3 = Color3.fromRGB(200, 200, 255)
+    msg.Font = Enum.Font.Code
+    msg.TextSize = 13
+    msg.TextWrapped = true
+    msg.ZIndex = 201
+
+    noti:TweenPosition(UDim2.new(1, -360, 0, 20), "Out", "Back", 0.6, true)
+
+    task.delay(4.5, function()
+        noti:TweenPosition(UDim2.new(1, 20, 0, 20), "In", "Back", 0.6, true, function()
+            noti:Destroy()
+        end)
+    end)
+end
+
+--// HOVER EFFECT
+local function hover(btn, col1, col2)
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {BackgroundColor3 = col2}):Play()
+        TweenService:Create(glow, TweenInfo.new(0.25), {Transparency = 0.3}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {BackgroundColor3 = col1}):Play()
+        TweenService:Create(glow, TweenInfo.new(0.25), {Transparency = 0.7}):Play()
+    end)
+end
+
+hover(dupeBtn, Color3.fromRGB(200, 40, 40), Color3.fromRGB(240, 70, 70))
+
+--// DUPE LOGIC - ALWAYS FAILS
+dupeBtn.MouseButton1Click:Connect(function()
+    if dupeBtn.Text ~= "START DUPE" then return end
+
+    dupeBtn.Text = "DUPING..."
+    dupeBtn.BackgroundColor3 = Color3.fromRGB(240, 70, 70)
+    dupeBtn.Active = false
+    progBar.Size = UDim2.new(0, 0, 1, 0)
+    progLabel.Text = "0%"
+    particles.Visible = true
+
+    log("Initializing dupe engine...", Color3.fromRGB(255, 255, 120))
+    task.wait(0.6)
+    log("Bypassing anti-dupe system...", Color3.fromRGB(255, 200, 100))
+    task.wait(0.8)
+    log("Flooding replication packets...", Color3.fromRGB(100, 200, 255))
+    task.wait(0.7)
+    log("Cloning item instance...", Color3.fromRGB(180, 255, 120))
+
+    local steps = {18, 35, 52, 68, 80, 90, 95, 98, 99, 100}
+    for _, pct in ipairs(steps) do
+        TweenService:Create(progBar, TweenInfo.new(0.35), {Size = UDim2.new(pct/100, 0, 1, 0)}):Play()
+        progLabel.Text = pct .. "%"
+        if pct == 68 then
+            log("High risk detected!", Color3.fromRGB(255, 100, 100))
+        end
+        task.wait(0.35 + math.random() * 0.15)
+    end
+
+    task.wait(0.5)
+
+    -- ALWAYS FAIL
+    log("PATCH DETECTED - DUPE FAILED", Color3.fromRGB(255, 50, 50))
+    status.Text = "Status: Patched"
+    dupeBtn.Text = "PATCHED"
+    dupeBtn.BackgroundColor3 = Color3.fromRGB(180, 30, 30)
+
+    -- SHOW NOTIFICATION
+    showPatchNotification()
+
+    particles.Visible = false
+
+    task.delay(3.5, function()
+        dupeBtn.Text = "START DUPE"
+        dupeBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+        dupeBtn.Active = true
+        status.Text = "Status: Ready"
+        progBar.Size = UDim2.new(0, 0, 1, 0)
+        progLabel.Text = "0%"
+    end)
+end)
+
+print("DupeX Pro HORIZONTAL loaded. Brainrot activated.")
