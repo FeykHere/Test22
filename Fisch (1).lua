@@ -77,8 +77,8 @@ _G['Normal Hub Table'] = {
 	AnimationUiToggle = true,
 }
 
-_G['DYHUB Table'].SizeUi = (not _G['DYHUB Table'].isWindows and UDim2.fromOffset(600,300)) or UDim2.fromOffset(560,600)
-if not _G['DYHUB Table'].isWindows then
+_G['Normal Hub Table'].SizeUi = (not _G['Normal Hub Table'].isWindows and UDim2.fromOffset(600,300)) or UDim2.fromOffset(560,600)
+if not _G['Normal Hub Table'].isWindows then
 	if game.CoreGui:FindFirstChild('UIBUTTON') then
 		game.CoreGui:FindFirstChild('UIBUTTON'):Destroy()
 	end
@@ -4205,4 +4205,5 @@ while true do
     end
     wait(0)
 end
+
 end
