@@ -868,7 +868,7 @@ function reloadBeastCam()
 	ViewportFrame:ClearAllChildren()
 	if beastcamtoggle and game.ReplicatedStorage.CurrentMap.Value ~= nil then
 		local beast = getBeast()
-		local cam = Instance.new("Camera", ScreenGui)
+		local cam = Instance.new("Camera", FTFHAX)
 		cam.CameraType = Enum.CameraType.Scriptable
 		cam.FieldOfView = 70
 		local map = game.ReplicatedStorage.CurrentMap.Value
